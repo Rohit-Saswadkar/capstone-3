@@ -1,0 +1,548 @@
+import os.path
+
+import pandas as pd
+import numpy as np
+import matplotlib.pyplot as plt
+import time
+import seaborn as sns
+start_time=time.time()
+
+df=pd.read_excel(r"C:\Users\saswa\OneDrive\Documents\pandas data\data\ML_data\capstones\3 classification project\data_airline_reviews.xlsx")
+# exploratory data analisys
+
+
+# get head and tails
+print('Head\n',df.head())
+
+print('Tail\n',df.tail())
+
+print('Shape\n',df.shape)
+
+# get description
+print('Description\n',df.describe().shape)
+
+# get information
+print('Info\n',df.info())
+
+# get classeso of pasengers as how many pasengers are regular
+print(df['author'].value_counts())
+
+df['rating']=df['overall']
+
+# there are 44069 classes in author (passenger col), as per that we have to convert them into columns using GEt dummies which will crate 44069 columns
+# and can over fit the data so to avoid that i am dropping it
+df=df.drop(columns=['author','value_for_money','overall'],axis=1)
+print('columns',df.columns)
+
+
+
+# customer review has null values fill by 1 using NLP
+# print('customer na',df['customer_review'].value_counts())
+
+df['customer_review']=df['customer_review'].fillna('best good')
+
+
+# print('customer filled',df['customer_review'].value_counts())
+
+print('customer review value counts\n',df['customer_review'].value_counts())
+
+# get classes of categorical data
+print('Airline types',df['airline'].value_counts())
+print('Aircraft',df['aircraft'].value_counts())
+print('Traveller_type',df['traveller_type'].value_counts())
+print('cabin',df['cabin'].value_counts())
+print('Route',df['route'].value_counts())
+print('Recommended',df['recommended'].value_counts())
+
+# we are going to work frequency embedding on aircraft, airline and routes to avoid high dimensionality
+# Define the columns to encode
+columns_to_encode = ['airline', 'aircraft', 'route']
+def fillna_mode(df,cols):
+
+    for col in cols:
+
+        df[col]=df[col].fillna(df[col].mode().iloc[0])
+
+    return df
+
+df=fillna_mode(df,columns_to_encode)
+
+# Apply frequency encoding
+for col in columns_to_encode:
+    freq = df[col].value_counts(normalize=True)  # Calculate the frequency of each category
+    df[col + '_freq_en'] = df[col].map(freq)  # Replace categories with their frequencies
+
+
+# Drop the original categorical columns if needed
+df.drop(columns=columns_to_encode, inplace=True)
+
+# Print the updated DataFrame
+print('updated dataframe\n',df)
+
+
+# apply label encoding to traveller type , cabin type and target variable recommended
+encoder={'traveller_type':{'Solo Leisure':1,'Couple Leisure':2,'Family Leisure':3,'Business':4},'cabin':{'Business Class':4,'First Class':3,'Premium Economy':2,'Economy Class':1},'recommended':{'yes':1,'no':0}}
+df=df.replace(encoder)
+
+# convert date in numeric
+import pandas as pd
+from datetime import datetime
+
+# Assuming you have a DataFrame called 'df' with a column named 'Date' containing dates in string or float format
+print(df['date_flown'].value_counts())
+# Define a function to extract month and year from the string format
+from dateutil.parser import parse
+# Function to handle parsing errors and missing values
+def parse_date(date):
+    try:
+        return parse(date)
+    except (TypeError, ValueError):
+        return np.nan
+
+# Convert the date strings to datetime objects
+df['Date'] = df['date_flown'].apply(parse_date)
+
+# Extract the month and year from the datetime objects
+df['day']=df['Date'].dt.day
+df['Month'] = df['Date'].dt.month
+df['Year'] = df['Date'].dt.year
+
+df.drop(columns=['Date'],inplace=True)
+
+print('day value counts',df['day'].value_counts())
+print('month value counts\n',df['Month'].value_counts())
+print('year value counts\n',df['Year'].value_counts())
+print('customer_review\n',df['customer_review'].value_counts())
+# Print the updated DataFrame
+print(df)
+
+# convert data type of column from object to int
+# def conv_dtype(dfx):
+#     for col in dfx.columns:
+#         if dfx[col].dtype =='object':
+#             dfx[col]=dfx[col].astype(int)
+#     return dfx
+
+# print(df.info())
+# # col_to_convert=[]
+
+
+print('data check 1\n',df.info)
+
+
+# check newly created columns and drop less frequent columns to avoid multi correaltion
+print('Updated df\n',df.columns)
+print(df.corr())
+
+plt.figure(figsize=(16,9))
+plot=sns.heatmap(abs(df.corr()),annot=True,cmap='coolwarm')
+plot.set_xticklabels(plot.get_xticklabels(),rotation=30,horizontalalignment='right')
+# plt.show()
+plt.close()
+
+
+
+print('Final columns ;',df.columns)
+
+# we have pasenger (author) review column having reviews . we can use them to get positive (1) an dnegative (0) using NLP
+from nltk.sentiment import SentimentIntensityAnalyzer
+
+
+# Create a function to classify the sentiment of a text
+def classify_sentiment(text):
+    sia = SentimentIntensityAnalyzer()
+    sentiment_scores = sia.polarity_scores(text)
+    compound_score = sentiment_scores['compound']
+
+    if compound_score >= 0.05:
+        return 1
+    elif compound_score <= -0.05:
+        return 0
+    else:
+        return 1
+
+df['customer_review']=df['customer_review'].apply(classify_sentiment)
+
+print(df['customer_review'].value_counts())
+
+print(df)
+
+# check any null is presented in columns
+count_null=df.isnull().sum()
+print('\nnull count\n\n',count_null)
+
+# there are lots of null present , fill them by median and mode
+def fill_na(df):
+    for col in df.columns:
+        df[col]=df[col].fillna(df[col].mode().iloc[0])
+    return df
+df=fill_na(df)
+
+print('\nfilled df\n\n',df.isnull().sum())
+# Print the modified DataFrame
+
+print(df.columns)
+print('\ncheck data type\n\n',df.info)
+
+
+end_time=time.time()
+total_time=end_time-start_time
+print(f'Total runtime {total_time} in seconds')
+
+# # Handleing multicolliear
+# df['service']=df['cabin_service']+df['ground_service']
+
+# df['aircraft_route']=df['route_freq_en']+df['aircraft_freq_en']
+
+# df['satisfaction']=df['seat_comfort']+df['entertainment']
+
+print('shape\n',df.shape)
+print('columns\n',df.columns)
+print('info\n',df.info())
+
+df.drop(columns=['review_date','date_flown','day'],inplace=True)
+
+variables=df.columns
+print('Plot dist plot for all columns')
+# for col in variables:
+#     plt.figure(figsize=(16,9))
+#     sns.distplot(df[col],color='y')
+#     plt.show()
+
+print('Relation betn target and independent var using scatter plot')
+# relation betn target and independent var
+# for col in independent_variables:
+#     plt.scatter(df[col],df['Rented Bike Count'],alpha=0.5)
+#     plt.title(f'Scatter plot of {col} vs Rented Bike Count')
+#     plt.xlabel(f'{col}')
+#     plt.ylabel('Rented Bike Count')
+#     plt.show()
+
+print('Mean of independent variable with rented bike count')
+# for col in independent_variables:
+#     print(f'{col} vs Rented bike count')
+#     ax = df.groupby([col])['Rented Bike Count'].mean().plot.bar(figsize=(10, 5), fontsize=14)
+#     ax.set_title(f'Average of rented bikes {col} by Rented Bike Count')
+#     ax.set_xlabel(col, fontsize=15)
+#     ax.set_ylabel('Rented Bike Count', fontsize=15)
+#     plt.show()
+
+
+print('Corellation scatter plot of independent to dependent variables')
+# for col in independent_variables:
+#     fig = plt.figure(figsize=(9, 6))
+#     ax = fig.gca()
+#     feature = df[col]
+#     label = df['Rented Bike Count']
+#     correlation = feature.corr(label)
+#     plt.scatter(x=feature, y=label)
+#     plt.xlabel(col)
+#     plt.ylabel('Rented Bike Count')
+#     ax.set_title('Rented Bike Count vs ' + col + '- correlation: ' + str(correlation))
+#     z = np.polyfit(df[col], df['Rented Bike Count'], 1)
+#     y_hat = np.poly1d(z)(df[col])
+#     plt.plot(df[col], y_hat, "r--", lw=1)
+# plt.show()
+
+
+# check final df
+print('DF INFO',df.info())
+# df.drop(columns=['cabin_service','ground_service','aircraft_freq_en','route_freq_en','entertainment','seat_comfort','food_bev','review_date','date_flown'],inplace=True)
+
+# find and remov eoutliers
+# 1] using std deviation
+def replace_outliers_with_limit(df):
+    for col in df.columns:
+        upper_limit = df[col].mean() + 3 * df[col].std()
+        lower_limit = df[col].mean() - 3 * df[col].std()
+
+        # Use apply with a custom lambda function to replace outliers with nearest upper or lower limit
+        df[col] = df[col].apply(lambda x: upper_limit if x > upper_limit else lower_limit if x < lower_limit else x)
+
+    return df
+
+
+print("Original DataFrame:")
+print(df)
+
+df =replace_outliers_with_limit(df)
+
+
+
+print("\nCleaned DataFrame:",df)
+print(df)
+print("\nOutliers:")
+# print(outliers)
+
+# check final columns
+print('Finalized columns\n\n',df.columns)
+
+plt.figure(figsize=(16,9))
+plot=sns.heatmap(abs(df.corr()),annot=True,cmap='coolwarm')
+plot.set_xticklabels(plot.get_xticklabels(),rotation=30,horizontalalignment='right')
+# plt.show()
+
+print(df['recommended'].value_counts())
+
+
+# split data
+# X=df.drop(columns=['recommended','customer_review'],axis=1)
+X=df.drop(columns=['recommended'],axis=1)
+y=df['recommended']
+
+
+from sklearn.decomposition import PCA
+from sklearn.preprocessing import StandardScaler
+print('X-Before PCA',X.shape)
+# Standardize the data
+scaler = StandardScaler() 
+X = scaler.fit_transform(X)
+
+
+from sklearn.decomposition import PCA
+from statsmodels.stats.outliers_influence import variance_inflation_factor
+
+# Fit PCA on your dataset
+pca = PCA(.95)  # Specify the desired number of components
+X=pca.fit_transform(X)  # X: your original dataset
+print('X-after PCA ',X.shape)
+import matplotlib.pyplot as plt
+
+# Calculate the explained variance ratio
+explained_var_ratio = pca.explained_variance_ratio_
+
+# Calculate the cumulative explained variance
+cumulative_var_ratio = np.cumsum(explained_var_ratio)
+
+# Plot the explained variance ratio
+plt.figure(figsize=(10, 6))
+plt.plot(range(1, len(explained_var_ratio) + 1), cumulative_var_ratio, marker='o', linestyle='-', color='b')
+plt.xlabel('Number of Components')
+plt.ylabel('Cumulative Explained Variance Ratio')
+plt.title('Explained Variance Ratio by Number of Components')
+plt.grid(True)
+# plt.show()
+
+
+
+# Transform the data
+# X = pca.transform(X)
+
+# # Convert transformed data back to DataFrame
+# df_pca = pd.DataFrame(X, columns=['PC1', 'PC2','PC3','PC4','PC5','PC6','PC7','PC8','PC9','PC10','PC11','PC12'])
+# #
+# # Calculate VIF for each feature in the transformed dataset
+# vif = pd.DataFrame()
+# vif["Feature"] = df_pca.columns
+# vif["VIF"] = [variance_inflation_factor(df_pca.values, i) for i in range(df_pca.shape[1])]
+#
+# # Print the VIF values
+# print('VIF\n',vif)
+
+
+# apply classification model
+from sklearn.model_selection import train_test_split
+xtrain,xtest,ytrain,ytest=train_test_split(X,y,test_size=0.2,random_state=0)
+
+# get model
+
+from sklearn.ensemble import RandomForestClassifier
+from sklearn.ensemble import GradientBoostingClassifier
+from sklearn.linear_model import LogisticRegression
+from sklearn.svm import SVC
+from sklearn.naive_bayes import GaussianNB
+from sklearn.neighbors import KNeighborsClassifier
+from sklearn.tree import DecisionTreeClassifier
+
+model=RandomForestClassifier(n_estimators=100,random_state=42)
+
+model.fit(xtrain,ytrain)
+
+y_pred_trial=model.predict(xtrain)
+
+y_pred=model.predict(xtest)
+
+# get accuracies
+from sklearn.metrics import mean_squared_error,r2_score,accuracy_score
+
+mse=mean_squared_error(ytest,y_pred)
+
+accuracy = accuracy_score(ytest, y_pred)
+
+rmse=np.sqrt(mse)
+
+r2=r2_score(ytest,y_pred)
+
+print(f'\n\n{model} MODEL PREDICTIONS')
+print("Accuracy:", accuracy)
+print('MSE ',mse)
+print('RMSE',rmse)
+print('R2 score',r2,'\n\n')
+
+# model
+model=DecisionTreeClassifier(max_depth=5,random_state=42)
+
+model.fit(xtrain,ytrain)
+
+y_pred_trial=model.predict(xtrain)
+
+y_pred=model.predict(xtest)
+
+# get accuracies
+from sklearn.metrics import mean_squared_error,r2_score,accuracy_score
+
+mse=mean_squared_error(ytest,y_pred)
+
+accuracy = accuracy_score(ytest, y_pred)
+
+rmse=np.sqrt(mse)
+
+r2=r2_score(ytest,y_pred)
+
+print(f'\n\n{model} MODEL PREDICTIONS')
+print("Accuracy:", accuracy)
+print('MSE ',mse)
+print('RMSE',rmse)
+print('R2 score',r2,'\n\n')
+
+# model
+model= GradientBoostingClassifier(n_estimators=100, learning_rate=0.1, random_state=42)
+
+model.fit(xtrain,ytrain)
+
+y_pred_trial=model.predict(xtrain)
+
+y_pred=model.predict(xtest)
+
+# get accuracies
+from sklearn.metrics import mean_squared_error,r2_score,accuracy_score
+
+mse=mean_squared_error(ytest,y_pred)
+
+accuracy = accuracy_score(ytest, y_pred)
+
+rmse=np.sqrt(mse)
+
+r2=r2_score(ytest,y_pred)
+
+print(f'\n\n{model} MODEL PREDICTIONS')
+print("Accuracy:", accuracy)
+print('MSE ',mse)
+print('RMSE',rmse)
+print('R2 score',r2,'\n\n')
+
+# model
+model= LogisticRegression()
+
+model.fit(xtrain,ytrain)
+
+y_pred_trial=model.predict(xtrain)
+
+y_pred=model.predict(xtest)
+
+# get accuracies
+from sklearn.metrics import mean_squared_error,r2_score,accuracy_score
+
+mse=mean_squared_error(ytest,y_pred)
+
+accuracy = accuracy_score(ytest, y_pred)
+
+rmse=np.sqrt(mse)
+
+r2=r2_score(ytest,y_pred)
+
+print(f'\n\n{model} MODEL PREDICTIONS')
+print("Accuracy:", accuracy)
+print('MSE ',mse)
+print('RMSE',rmse)
+print('R2 score',r2,'\n\n')
+
+
+# model
+model= GaussianNB()
+
+model.fit(xtrain,ytrain)
+
+y_pred_trial=model.predict(xtrain)
+
+y_pred=model.predict(xtest)
+
+# get accuracies
+from sklearn.metrics import mean_squared_error,r2_score,accuracy_score
+
+mse=mean_squared_error(ytest,y_pred)
+
+accuracy = accuracy_score(ytest, y_pred)
+
+rmse=np.sqrt(mse)
+
+r2=r2_score(ytest,y_pred)
+
+print(f'\n\n{model} MODEL PREDICTIONS')
+print("Accuracy:", accuracy)
+print('MSE ',mse)
+print('RMSE',rmse)
+print('R2 score',r2,'\n\n')
+
+
+# model
+model= KNeighborsClassifier(n_neighbors=5)
+
+model.fit(xtrain,ytrain)
+
+y_pred_trial=model.predict(xtrain)
+
+y_pred=model.predict(xtest)
+
+# get accuracies
+from sklearn.metrics import mean_squared_error,r2_score,accuracy_score
+
+mse=mean_squared_error(ytest,y_pred)
+
+accuracy = accuracy_score(ytest, y_pred)
+
+rmse=np.sqrt(mse)
+
+r2=r2_score(ytest,y_pred)
+
+print(f'\n\n{model} MODEL PREDICTIONS')
+print("Accuracy:", accuracy)
+print('MSE ',mse)
+print('RMSE',rmse)
+print('R2 score',r2,'\n\n')
+
+
+# model
+model= SVC()
+
+model.fit(xtrain,ytrain)
+
+y_pred_trial=model.predict(xtrain)
+
+y_pred=model.predict(xtest)
+
+# get accuracies
+from sklearn.metrics import mean_squared_error,r2_score,accuracy_score
+
+mse=mean_squared_error(ytest,y_pred)
+
+accuracy = accuracy_score(ytest, y_pred)
+
+rmse=np.sqrt(mse)
+
+r2=r2_score(ytest,y_pred)
+
+print(f'\n\n{model} MODEL PREDICTIONS')
+print("Accuracy:", accuracy)
+print('MSE ',mse)
+print('RMSE',rmse)
+print('R2 score',r2,'\n\n')
+import  pickle
+with open('airline_referal_model.pkl','wb') as file:
+    pickle.dump(model,file)
+
+with open('scaler.pkl', 'wb') as file:
+        pickle.dump(scaler, file)
+
+
+
